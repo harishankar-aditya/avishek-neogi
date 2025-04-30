@@ -111,6 +111,33 @@ async def delete_record(sr_no: int):
     return {"message": f"Record with Sr No {sr_no} deleted successfully."}
 
 
-@app.get('/')
-def read_root():
-    return {"Hello": "World"}
+# Update a record by Sr No
+@app.put("/record/{sr_no}")
+async def update_record(sr_no: int, record: Record):
+    file_path = "records.xlsx"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Records file not found.")
+    wb = load_workbook(file_path)
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        raise HTTPException(status_code=400, detail="No data available.")
+    headers = rows[0]
+    # Find index for Sr No and row
+    if "Sr No" not in headers:
+        raise HTTPException(status_code=400, detail="Sr No column missing.")
+    sr_index = headers.index("Sr No")
+    row_to_update = None
+    for idx_row, row in enumerate(rows[1:], start=2):
+        if row[sr_index] == sr_no:
+            row_to_update = idx_row
+            break
+    if row_to_update is None:
+        raise HTTPException(status_code=404, detail="Record not found.")
+    # Prepare new data
+    data = record.dict(by_alias=True)
+    # Update cells
+    for col_index, header in enumerate(headers, start=1):
+        ws.cell(row=row_to_update, column=col_index, value=data.get(header))
+    wb.save(file_path)
+    return {"message": f"Record with Sr No {sr_no} updated successfully."}

@@ -20,34 +20,25 @@
       padding: 20px;
       font-family: Arial, sans-serif;
     }
-
     h1 {
       font-size: 1.75rem;
       font-weight: 600;
       margin-bottom: 1rem;
       text-align: center;
     }
-
-    /* always-scrollable table */
     .table-responsive {
       overflow-x: auto;
     }
-
-    /* sticky header */
     .table thead th {
       position: sticky;
       top: 0;
       background: #fff;
       z-index: 2;
     }
-
-    /* hover highlight */
     .table-hover tbody tr:hover {
       background: #eef6ff;
       transition: background-color 0.3s;
     }
-
-    /* fade-in new rows */
     .fade-in {
       animation: fadeIn 0.5s ease-in-out;
     }
@@ -55,7 +46,6 @@
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-
     /* column widths */
     .table th:nth-child(1),
     .table td:nth-child(1) { min-width: 60px; }
@@ -71,8 +61,6 @@
     .table td:nth-child(6) { min-width: 120px; }
     .table th:nth-child(7),
     .table td:nth-child(7) { min-width: 150px; }
-
-    /* wrap & scroll long text */
     .cell-content {
       display: block;
       white-space: normal;
@@ -81,8 +69,6 @@
       overflow-y: auto;
       padding: 0.25em;
     }
-
-    /* status colors */
     .status-select {
       width: 100%;
       padding: 0.375rem 0.75rem;
@@ -90,19 +76,15 @@
       border: 1px solid #ced4da;
       transition: background-color 0.3s, border-color 0.3s;
     }
-    .status-Planned   { background: #e7f1ff; }
-    .status-Ongoing   { background: #fff8e1; }
-    .status-Completed { background: #e6ffed; }
-    .status-WIP       { background: #f0f0f0; }
-    .status-Delayed   { background: #ffe6e6; }
-
-    /* small-screen tweaks */
+    .status-Planned   { background: #4ab5fcdf; }
+    .status-Ongoing   { background: #eec830ea; }
+    .status-WIP       { background: #fc8f30eb; }
+    .status-Completed { background: #2fe57bea; }
+    .status-Delayed   { background: #fb5e4ceb; }
     @media (max-width: 576px) {
       .btn { width: 100%; margin-bottom: 0.5rem; }
       .table th, .table td { font-size: 0.9rem; padding: 0.5rem; }
     }
-
-    /* button hover lift */
     .btn {
       transition: transform 0.2s, box-shadow 0.2s;
     }
@@ -110,7 +92,6 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-
     .btn-disabled {
       opacity: 0.5;
       pointer-events: none;
@@ -146,7 +127,40 @@
 
   <script>
     let initialData = [];
+    // const baseUrl = 'http://localhost:8005';
     const baseUrl = 'http://52.66.221.253:8000';
+    // Called whenever a user changes the status dropdown
+    function updateStatus(index, selectElem) {
+      const newStatus = selectElem.value;
+      const task = initialData[index];
+      task.status = newStatus;
+      selectElem.className = 'status-select status-' + newStatus;
+      // Only existing records (isSubmitted) get a PUT
+      if (!task.isSubmitted) return;
+      fetch(`${baseUrl}/record/${task.sr}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          "Sr No": Number(task.sr),
+          "Segment": task.segment,
+          "Sub Segment": task.subSegment,
+          "Action Pointers": task.action,
+          "Timeline": task.timeline,
+          "Status": task.status
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Update failed');
+        return res.json();
+      })
+      .then(() => {
+        console.log(`Sr No ${task.sr} status updated to ${task.status}`);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Failed to update status');
+      });
+    }
 
     function validateTask(t, i) {
       if (!t.sr || !t.segment || !t.subSegment || !t.action || !t.timeline || !t.status) {
@@ -196,64 +210,51 @@
         row.innerHTML = `
           <td>
             <div class="cell-content" contenteditable="${!t.isSubmitted}"
-              oninput="initialData[${i}].sr = this.innerText.trim()">
+                 oninput="initialData[${i}].sr = this.innerText.trim()">
               ${t.sr || ''}
             </div>
           </td>
-
           <td>
             <div class="cell-content" contenteditable="${!t.isSubmitted}"
-              oninput="initialData[${i}].segment = this.innerText.trim()">
+                 oninput="initialData[${i}].segment = this.innerText.trim()">
               ${t.segment || ''}
             </div>
           </td>
-
           <td>
             <div class="cell-content" contenteditable="${!t.isSubmitted}"
-              oninput="initialData[${i}].subSegment = this.innerText.trim()">
+                 oninput="initialData[${i}].subSegment = this.innerText.trim()">
               ${t.subSegment || ''}
             </div>
           </td>
-
           <td>
             <div class="cell-content" contenteditable="${!t.isSubmitted}"
-              oninput="initialData[${i}].action = this.innerText.trim()">
+                 oninput="initialData[${i}].action = this.innerText.trim()">
               ${t.action || ''}
             </div>
           </td>
-
           <td>
             <input type="date" class="form-control"
-              value="${t.timeline || ''}"
-              ${t.isSubmitted
-                ? 'disabled'
-                : `onchange="initialData[${i}].timeline = this.value"`} />
+                   value="${t.timeline || ''}"
+                   ${t.isSubmitted
+                     ? 'disabled'
+                     : `onchange="initialData[${i}].timeline = this.value"`} />
           </td>
-
           <td>
-            <select
-              class="status-select status-${t.status}"
-              ${t.isSubmitted
-                ? 'disabled'
-                : `onchange="
-                    initialData[${i}].status = this.value;
-                    this.className = 'status-select status-' + this.value;
-                  "`}
-            >
+            <select class="status-select status-${t.status}"
+                    onchange="updateStatus(${i}, this)">
               <option value="Planned"   ${t.status === 'Planned'   ? 'selected' : ''}>Planned</option>
               <option value="Ongoing"   ${t.status === 'Ongoing'   ? 'selected' : ''}>Ongoing</option>
-              <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
               <option value="WIP"       ${t.status === 'WIP'       ? 'selected' : ''}>WIP</option>
+              <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
               <option value="Delayed"   ${t.status === 'Delayed'   ? 'selected' : ''}>Delayed</option>
             </select>
           </td>
-
           <td>
-            <button class="btn btn-danger btn-sm" onclick="deleteRow(${i})">Delete</button>
-            <button
-              class="btn btn-primary btn-sm${t.isSubmitted ? ' btn-disabled' : ''}"
-              ${t.isSubmitted ? 'disabled' : `onclick="saveRow(${i})"`}
-            >
+            <button class="btn btn-danger btn-sm" onclick="deleteRow(${i})">
+              Delete
+            </button>
+            <button class="btn btn-primary btn-sm${t.isSubmitted ? ' btn-disabled' : ''}"
+                    ${t.isSubmitted ? 'disabled' : `onclick="saveRow(${i})"`}>
               Save
             </button>
           </td>
