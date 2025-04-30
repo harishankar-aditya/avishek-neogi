@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Gantt Chart Task Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f9f9f9; padding: 20px; }
+    h1 { margin-bottom: 20px; font-size: 1.5rem; }
+    .table-responsive { overflow-x: auto; }
+    .table td, .table th { vertical-align: middle; }
+    .status-select { width: 100%; }
+    td[contenteditable] { min-width: 100px; white-space: pre-wrap; word-break: break-word; }
+    .btn-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    @media (max-width: 576px) {
+      .btn { width: 100%; margin-bottom: 10px; }
+      .table th, .table td { font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center">Gantt Chart Task Manager</h1>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover" id="taskTable">
+        <thead class="table-light">
+          <tr>
+            <th>Sr No</th>
+            <th>Segment</th>
+            <th>Sub Segment</th>
+            <th>Action Pointers</th>
+            <th>Timeline</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-primary" onclick="addNewRow()">Add Task</button>
+    <button class="btn btn-success" onclick="downloadCSV()">Download CSV</button>
+  </div>
+
+  <script>
+    let initialData = [];
+    const baseUrl = 'http://52.66.221.253:8000';
+
+    // Validate fields, integer Sr No, uniqueness
+    function validateTask(task, index) {
+      if (!task.sr || !task.segment || !task.subSegment || !task.action || !task.timeline || !task.status) {
+        alert('All fields are required.');
+        return false;
+      }
+      const num = Number(task.sr);
+      if (!Number.isInteger(num)) {
+        alert('Sr No must be an integer.');
+        return false;
+      }
+      // unique across all rows except current
+      for (let i = 0; i < initialData.length; i++) {
+        if (i !== index && initialData[i].sr === task.sr) {
+          alert('Sr No must be unique.');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    async function fetchRecords() {
+      try {
+        const response = await fetch(`${baseUrl}/records/`);
+        if (!response.ok) throw new Error(`Error: ${response.status}`);
+        const data = await response.json();
+        initialData = data.map(item => ({
+          sr: String(item["Sr No"]),
+          segment: item["Segment"],
+          subSegment: item["Sub Segment"],
+          action: item["Action Pointers"],
+          timeline: item["Timeline"],
+          status: item["Status"],
+          isSubmitted: true
+        }));
+        renderTable();
+      } catch (err) {
+        console.error('Failed to fetch records:', err);
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('taskBody');
+      tbody.innerHTML = '';
+      initialData.forEach((task, index) => {
+        const submitted = task.isSubmitted;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td contenteditable="${submitted ? 'false' : 'true'}" oninput="initialData[${index}].sr = this.innerText.trim()">${task.sr || ''}</td>
+          <td contenteditable="${submitted ? 'false' : 'true'}" oninput="initialData[${index}].segment = this.innerText.trim()">${task.segment || ''}</td>
+          <td contenteditable="${submitted ? 'false' : 'true'}" oninput="initialData[${index}].subSegment = this.innerText.trim()">${task.subSegment || ''}</td>
+          <td contenteditable="${submitted ? 'false' : 'true'}" oninput="initialData[${index}].action = this.innerText.trim()">${task.action || ''}</td>
+          <td><input type="date" class="form-control" value="${task.timeline || ''}" ${submitted ? 'disabled' : `onchange="initialData[${index}].timeline = this.value"`}></td>
+          <td>
+            <select class="form-select status-select" ${submitted ? 'disabled' : `onchange="initialData[${index}].status = this.value"`}>
+              <option ${task.status === 'Planned' ? 'selected' : ''}>Planned</option>
+              <option ${task.status === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
+              <option ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
+              <option ${task.status === 'WIP' ? 'selected' : ''}>WIP</option>
+              <option ${task.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="deleteRow(${index})">Delete</button>
+            <button class="btn btn-primary btn-sm${submitted ? ' btn-disabled' : ''}" ${submitted ? 'disabled' : ''} onclick="saveRow(${index})">Save</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function addNewRow() {
+      initialData.push({ sr: '', segment: '', subSegment: '', action: '', timeline: '', status: 'Planned', isSubmitted: false });
+      renderTable();
+    }
+
+    async function deleteRow(index) {
+      const task = initialData[index];
+      // allow deletion only if row originally submitted
+      if (!task.isSubmitted) {
+        // remove locally
+        initialData.splice(index, 1);
+        renderTable();
+        return;
+      }
+      if (!validateTask(task, index)) return;
+      try {
+        const response = await fetch(`${baseUrl}/record/${task.sr}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error(`Error: ${response.status}`);
+        alert('Record deleted');
+        fetchRecords();
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to delete record');
+      }
+    }
+
+    async function saveRow(index) {
+      const task = initialData[index];
+      if (!validateTask(task, index)) return;
+      const payload = {
+        "Sr No": Number(task.sr),
+        "Segment": task.segment,
+        "Sub Segment": task.subSegment,
+        "Action Pointers": task.action,
+        "Timeline": task.timeline,
+        "Status": task.status,
+        "Actions": ""
+      };
+      try {
+        const response = await fetch(`${baseUrl}/append-record/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(`Error: ${response.status}`);
+        alert('Record saved');
+        fetchRecords();
+      } catch (err) {
+        console.error('Save failed:', err);
+        alert('Failed to save record');
+      }
+    }
+
+    function downloadCSV() {
+      let csv = 'Sr No,Segment,Sub Segment,Action Pointers,Timeline,Status\n';
+      const rows = document.querySelectorAll('#taskBody tr');
+      rows.forEach(row => {
+        const cols = row.querySelectorAll('td');
+        if (cols.length === 7) {
+          const sr = cols[0].innerText.trim();
+          const segment = cols[1].innerText.trim();
+          const subSegment = cols[2].innerText.trim();
+          const action = cols[3].innerText.trim();
+          const timeline = cols[4].querySelector('input')?.value || '';
+          const status = cols[5].querySelector('select')?.value || '';
+          csv += `${sr},${segment},${subSegment},${action},${timeline},${status}\n`;
+        }
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'GanttChartTasks.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    window.onload = fetchRecords;
+  </script>
+</body>
+</html>

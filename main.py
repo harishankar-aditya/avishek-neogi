@@ -1,9 +1,13 @@
+import os
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from openpyxl import Workbook, load_workbook
-import os
 from fastapi.middleware.cors import CORSMiddleware
+
 from typing import List, Dict, Any
+from pathlib import Path
+
 
 app = FastAPI()
 
@@ -15,6 +19,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# Serve the HTML frontend
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    html = Path("index.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html, media_type="text/html")
+
 
 class Record(BaseModel):
     sr_no: int        = Field(..., alias="Sr No")
