@@ -46,7 +46,6 @@
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    /* column widths */
     .table th:nth-child(1),
     .table td:nth-child(1) { min-width: 60px; }
     .table th:nth-child(2),
@@ -61,6 +60,7 @@
     .table td:nth-child(6) { min-width: 120px; }
     .table th:nth-child(7),
     .table td:nth-child(7) { min-width: 150px; }
+
     .cell-content {
       display: block;
       white-space: normal;
@@ -81,10 +81,7 @@
     .status-WIP       { background: #fc8f30eb; }
     .status-Completed { background: #2fe57bea; }
     .status-Delayed   { background: #fb5e4ceb; }
-    @media (max-width: 576px) {
-      .btn { width: 100%; margin-bottom: 0.5rem; }
-      .table th, .table td { font-size: 0.9rem; padding: 0.5rem; }
-    }
+
     .btn {
       transition: transform 0.2s, box-shadow 0.2s;
     }
@@ -95,6 +92,26 @@
     .btn-disabled {
       opacity: 0.5;
       pointer-events: none;
+    }
+
+    .action-btn-container {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+
+    .action-btn-container .btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 576px) {
+      .table th, .table td {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+      }
     }
   </style>
 </head>
@@ -127,15 +144,13 @@
 
   <script>
     let initialData = [];
-    // const baseUrl = 'http://localhost:8005';
     const baseUrl = 'http://52.66.221.253:8000';
-    // Called whenever a user changes the status dropdown
+
     function updateStatus(index, selectElem) {
       const newStatus = selectElem.value;
       const task = initialData[index];
       task.status = newStatus;
       selectElem.className = 'status-select status-' + newStatus;
-      // Only existing records (isSubmitted) get a PUT
       if (!task.isSubmitted) return;
       fetch(`${baseUrl}/record/${task.sr}`, {
         method: 'PUT',
@@ -250,13 +265,15 @@
             </select>
           </td>
           <td>
-            <button class="btn btn-danger btn-sm" onclick="deleteRow(${i})">
-              Delete
-            </button>
-            <button class="btn btn-primary btn-sm${t.isSubmitted ? ' btn-disabled' : ''}"
-                    ${t.isSubmitted ? 'disabled' : `onclick="saveRow(${i})"`}>
-              Save
-            </button>
+            <div class="action-btn-container">
+              <button class="btn btn-danger btn-sm" onclick="deleteRow(${i})">
+                Delete
+              </button>
+              <button class="btn btn-primary btn-sm${t.isSubmitted ? ' btn-disabled' : ''}"
+                      ${t.isSubmitted ? 'disabled' : `onclick="saveRow(${i})"`}>
+                Save
+              </button>
+            </div>
           </td>
         `;
         tbody.appendChild(row);
