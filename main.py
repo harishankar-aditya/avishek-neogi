@@ -182,3 +182,22 @@ async def update_record(project_id: str, sr_no: int, record: Record):
         ws.cell(row=row_to_update, column=col_index, value=data.get(header))
     wb.save(file_path)
     return {"message": f"Record with Sr No {sr_no} updated successfully."}
+
+
+from fastapi.responses import StreamingResponse
+import asyncio
+
+
+async def word_stream(docsString):
+    for word in docsString.split():
+        yield word + " "
+        await asyncio.sleep(1)
+
+
+class Test(BaseModel):
+    docsString: str = ""
+
+
+@app.get("/teststreamapi")
+async def stream_api(docsString: Test):
+    return StreamingResponse(word_stream(docsString), media_type="text/plain")
