@@ -200,4 +200,5 @@ class Test(BaseModel):
 
 @app.post("/teststreamapi")
 async def stream_api(docsString: Test):
+    string = str(docsString.docsString)
     return StreamingResponse(word_stream(docsString), media_type="text/plain")
