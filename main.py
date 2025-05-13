@@ -192,7 +192,7 @@ async def word_stream(docsString):
     for word in docsString.split():
         # print(word)
         yield word + " "
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.1)
 
 class Test(BaseModel):
     docsString: str = ""
