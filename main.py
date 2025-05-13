@@ -17,23 +17,38 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
+
 
 # Serve the HTML frontend
 @app.get("/", response_class=HTMLResponse)
-async def serve_frontend():
-    html = Path("index.html").read_text(encoding="utf-8")
+async def serve_frontend_of_proj():
+    html = Path("project1.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html, media_type="text/html")
+
+
+# Serve the HTML frontend
+@app.get("/project1", response_class=HTMLResponse)
+async def serve_frontend_of_proj_1():
+    html = Path("project1.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html, media_type="text/html")
+
+
+# Serve the HTML frontend
+@app.get("/project2", response_class=HTMLResponse)
+async def serve_frontend_of_proj_2():
+    html = Path("project2.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html, media_type="text/html")
 
 
 class Record(BaseModel):
-    sr_no: int        = Field(..., alias="Sr No")
-    segment: str      = Field(..., alias="Segment")
-    sub_segment: str  = Field(..., alias="Sub Segment")
-    action_pointers: str       = Field(..., alias="Action Pointers")
-    timeline: str     = Field(..., alias="Timeline")
-    status: str       = Field(..., alias="Status")
+    sr_no: int = Field(..., alias="Sr No")
+    segment: str = Field(..., alias="Segment")
+    sub_segment: str = Field(..., alias="Sub Segment")
+    action_pointers: str = Field(..., alias="Action Pointers")
+    timeline: str = Field(..., alias="Timeline")
+    status: str = Field(..., alias="Status")
     # actions: str      = Field(..., alias="Actions")
 
     class Config:
@@ -41,9 +56,16 @@ class Record(BaseModel):
         validate_by_name = True
         allow_population_by_alias = True
 
-@app.post("/append-record/")
-async def append_record(record: Record):
-    file_path = "records.xlsx"
+
+@app.post("/{project_id}/append-record/")
+async def append_record(project_id: str, record: Record):
+    if project_id != "project_1":
+        file_path = "project_1_records.xlsx"
+    elif project_id != "project_2":
+        file_path = "project_2_records.xlsx"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid project ID.")
+
     data = record.model_dump(by_alias=True)
 
     if not os.path.exists(file_path):
@@ -59,9 +81,16 @@ async def append_record(record: Record):
 
     return {"message": "Record appended successfully."}
 
-@app.get("/records/", response_model=List[Record])
-async def get_records():
-    file_path = "records.xlsx"
+
+@app.get("/{project_id}/records/", response_model=List[Record])
+async def get_records(project_id: str):
+    if project_id != "project_1":
+        file_path = "project_1_records.xlsx"
+    elif project_id != "project_2":
+        file_path = "project_2_records.xlsx"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid project ID.")
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Records file not found.")
 
@@ -81,9 +110,15 @@ async def get_records():
     return records
 
 
-@app.delete("/record/{sr_no}")
-async def delete_record(sr_no: int):
-    file_path = "records.xlsx"
+@app.delete("/{project_id}/record/{sr_no}")
+async def delete_record(project_id: str, sr_no: int):
+    if project_id != "project_1":
+        file_path = "project_1_records.xlsx"
+    elif project_id != "project_2":
+        file_path = "project_2_records.xlsx"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid project ID.")
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Records file not found.")
 
@@ -112,9 +147,15 @@ async def delete_record(sr_no: int):
 
 
 # Update a record by Sr No
-@app.put("/record/{sr_no}")
-async def update_record(sr_no: int, record: Record):
-    file_path = "records.xlsx"
+@app.put("/{project_id}/record/{sr_no}")
+async def update_record(project_id: str, sr_no: int, record: Record):
+    if project_id != "project_1":
+        file_path = "project_1_records.xlsx"
+    elif project_id != "project_2":
+        file_path = "project_2_records.xlsx"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid project ID.")
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Records file not found.")
     wb = load_workbook(file_path)

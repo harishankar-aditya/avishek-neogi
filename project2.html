@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gantt Chart Task Manager</title>
+  <!-- Bootstrap 5 -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Animate.css for fade-in -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+  />
+  <style>
+    body {
+      background: #f9f9f9;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .table-responsive {
+      overflow-x: auto;
+    }
+    .table thead th {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 2;
+    }
+    .table-hover tbody tr:hover {
+      background: #eef6ff;
+      transition: background-color 0.3s;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .table th:nth-child(1),
+    .table td:nth-child(1) { min-width: 60px; }
+    .table th:nth-child(2),
+    .table td:nth-child(2) { min-width: 140px; }
+    .table th:nth-child(3),
+    .table td:nth-child(3) { min-width: 140px; }
+    .table th:nth-child(4),
+    .table td:nth-child(4) { min-width: 240px; }
+    .table th:nth-child(5),
+    .table td:nth-child(5) { min-width: 120px; }
+    .table th:nth-child(6),
+    .table td:nth-child(6) { min-width: 120px; }
+    .table th:nth-child(7),
+    .table td:nth-child(7) { min-width: 150px; }
+
+    .cell-content {
+      display: block;
+      white-space: normal;
+      word-break: break-word;
+      max-height: 4em;
+      overflow-y: auto;
+      padding: 0.25em;
+    }
+    .status-select {
+      width: 100%;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.25rem;
+      border: 1px solid #ced4da;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    .status-Planned   { background: #4ab5fcdf; }
+    .status-Ongoing   { background: #eec830ea; }
+    .status-WIP       { background: #fc8f30eb; }
+    .status-Completed { background: #2fe57bea; }
+    .status-Delayed   { background: #fb5e4ceb; }
+
+    .btn {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover:not(.btn-disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .btn-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .action-btn-container {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+
+    .action-btn-container .btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 576px) {
+      .table th, .table td {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Project 2: Gantt Chart Task Manager</h1>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover" id="taskTable">
+        <thead class="table-light">
+          <tr>
+            <th>Sr No</th>
+            <th>Segment</th>
+            <th>Sub Segment</th>
+            <th>Action Pointers</th>
+            <th>Timeline</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex flex-column flex-sm-row gap-2 mt-3">
+      <button class="btn btn-primary" onclick="addNewRow()">Add Task</button>
+      <button class="btn btn-success" onclick="downloadCSV()">Download CSV</button>
+    </div>
+  </div>
+
+  <script>
+    let initialData = [];
+    const baseUrl = 'http://52.66.221.253:8000/project_2';
+    // const baseUrl = 'http://localhost:8000/project_2';
+
+    function updateStatus(index, selectElem) {
+      const newStatus = selectElem.value;
+      const task = initialData[index];
+      task.status = newStatus;
+      selectElem.className = 'status-select status-' + newStatus;
+      if (!task.isSubmitted) return;
+      fetch(`${baseUrl}/record/${task.sr}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          "Sr No": Number(task.sr),
+          "Segment": task.segment,
+          "Sub Segment": task.subSegment,
+          "Action Pointers": task.action,
+          "Timeline": task.timeline,
+          "Status": task.status
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Update failed');
+        return res.json();
+      })
+      .then(() => {
+        console.log(`Sr No ${task.sr} status updated to ${task.status}`);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Failed to update status');
+      });
+    }
+
+    function validateTask(t, i) {
+      if (!t.sr || !t.segment || !t.subSegment || !t.action || !t.timeline || !t.status) {
+        alert('All fields are required.');
+        return false;
+      }
+      const n = Number(t.sr);
+      if (!Number.isInteger(n)) {
+        alert('Sr No must be an integer.');
+        return false;
+      }
+      for (let j = 0; j < initialData.length; j++) {
+        if (j !== i && initialData[j].sr === t.sr) {
+          alert('Sr No must be unique.');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    async function fetchRecords() {
+      try {
+        const resp = await fetch(`${baseUrl}/records/`);
+        if (!resp.ok) throw new Error(resp.status);
+        const data = await resp.json();
+        initialData = data.map(item => ({
+          sr: String(item["Sr No"]),
+          segment: item["Segment"],
+          subSegment: item["Sub Segment"],
+          action: item["Action Pointers"],
+          timeline: item["Timeline"],
+          status: item["Status"],
+          isSubmitted: true
+        }));
+        renderTable();
+      } catch (e) {
+        console.error('Fetch failed:', e);
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('taskBody');
+      tbody.innerHTML = '';
+      initialData.forEach((t, i) => {
+        const row = document.createElement('tr');
+        row.classList.add('fade-in');
+        row.innerHTML = `
+          <td>
+            <div class="cell-content" contenteditable="${!t.isSubmitted}"
+                 oninput="initialData[${i}].sr = this.innerText.trim()">
+              ${t.sr || ''}
+            </div>
+          </td>
+          <td>
+            <div class="cell-content" contenteditable="${!t.isSubmitted}"
+                 oninput="initialData[${i}].segment = this.innerText.trim()">
+              ${t.segment || ''}
+            </div>
+          </td>
+          <td>
+            <div class="cell-content" contenteditable="${!t.isSubmitted}"
+                 oninput="initialData[${i}].subSegment = this.innerText.trim()">
+              ${t.subSegment || ''}
+            </div>
+          </td>
+          <td>
+            <div class="cell-content" contenteditable="${!t.isSubmitted}"
+                 oninput="initialData[${i}].action = this.innerText.trim()">
+              ${t.action || ''}
+            </div>
+          </td>
+          <td>
+            <input type="date" class="form-control"
+                   value="${t.timeline || ''}"
+                   ${t.isSubmitted
+                     ? 'disabled'
+                     : `onchange="initialData[${i}].timeline = this.value"`} />
+          </td>
+          <td>
+            <select class="status-select status-${t.status}"
+                    onchange="updateStatus(${i}, this)">
+              <option value="Planned"   ${t.status === 'Planned'   ? 'selected' : ''}>Planned</option>
+              <option value="Ongoing"   ${t.status === 'Ongoing'   ? 'selected' : ''}>Ongoing</option>
+              <option value="WIP"       ${t.status === 'WIP'       ? 'selected' : ''}>WIP</option>
+              <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
+              <option value="Delayed"   ${t.status === 'Delayed'   ? 'selected' : ''}>Delayed</option>
+            </select>
+          </td>
+          <td>
+            <div class="action-btn-container">
+              <button class="btn btn-danger btn-sm" onclick="deleteRow(${i})">
+                Delete
+              </button>
+              <button class="btn btn-primary btn-sm${t.isSubmitted ? ' btn-disabled' : ''}"
+                      ${t.isSubmitted ? 'disabled' : `onclick="saveRow(${i})"`}>
+                Save
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function addNewRow() {
+      initialData.push({
+        sr: '',
+        segment: '',
+        subSegment: '',
+        action: '',
+        timeline: '',
+        status: 'Planned',
+        isSubmitted: false
+      });
+      renderTable();
+    }
+
+    async function deleteRow(i) {
+      const t = initialData[i];
+      if (!t.isSubmitted) {
+        initialData.splice(i, 1);
+        return renderTable();
+      }
+      if (!validateTask(t, i)) return;
+      try {
+        const res = await fetch(`${baseUrl}/record/${t.sr}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(res.status);
+        fetchRecords();
+      } catch {
+        alert('Failed to delete');
+      }
+    }
+
+    async function saveRow(i) {
+      const t = initialData[i];
+      if (!validateTask(t, i)) return;
+      try {
+        const res = await fetch(`${baseUrl}/append-record/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            "Sr No": Number(t.sr),
+            "Segment": t.segment,
+            "Sub Segment": t.subSegment,
+            "Action Pointers": t.action,
+            "Timeline": t.timeline,
+            "Status": t.status
+          })
+        });
+        if (!res.ok) throw new Error(res.status);
+        fetchRecords();
+      } catch {
+        alert('Save failed');
+      }
+    }
+
+    function downloadCSV() {
+      let csv = 'Sr No,Segment,Sub Segment,Action Pointers,Timeline,Status\n';
+      document.querySelectorAll('#taskBody tr').forEach(r => {
+        const c = r.querySelectorAll('td');
+        const vals = [
+          c[0].innerText.trim(),
+          c[1].innerText.trim(),
+          c[2].innerText.trim(),
+          c[3].innerText.trim(),
+          c[4].querySelector('input')?.value || '',
+          c[5].querySelector('select')?.value || ''
+        ];
+        csv += vals.join(',') + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'GanttChartTasks.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    window.onload = fetchRecords;
+  </script>
+</body>
+</html>
