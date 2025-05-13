@@ -194,7 +194,6 @@ async def word_stream(docsString):
         yield word + " "
         await asyncio.sleep(1)
 
-
 class Test(BaseModel):
     docsString: str = ""
 
@@ -204,4 +203,4 @@ async def stream_api(docsString: Test):
     inp = docsString.model_dump()
     string = str(inp["docsString"])
     print(string)
-    return StreamingResponse(word_stream(string), media_type="text/plain")
+    return StreamingResponse(word_stream(string), media_type="text/event-stream")
